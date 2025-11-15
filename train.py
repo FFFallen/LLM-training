@@ -12,9 +12,7 @@ class TextDataset(Dataset):
         self.block_size = block_size
 
     def __len__(self):
-        # 调试信息
         length = max(0, len(self.tokens) - self.block_size)
-        print("Dataset length:", length)
         return length
 
     def __getitem__(self, idx):
@@ -27,19 +25,29 @@ if __name__ == "__main__":
     tokenizer = get_tokenizer()
 
     # 加载数据
-    print("加载数据...\n")
+    print("加载数据...")
 
-    dataset_hf = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1")
-    text = "\n".join(dataset_hf["train"]["text"])
+    # 加载本地 CSV 文件
+    dataset_hf = load_dataset("csv", data_files="data/sample-raw-wikitext-data.csv")
+
+    # 取出其中的文本列
+    text_data = dataset_hf["train"]["text"]
+    clean_text_data = [t for t in text_data if t is not None and t.strip() != ""]
+
+    # 拼接成一个长文本（用换行符分隔）
+    text = "\n".join(clean_text_data)
     print("数据加载完成，文本长度：", len(text))
+
+    # 创建数据集和数据加载器
     dataset = TextDataset(text, tokenizer, block_size=128)
-    print("dataset:",dataset)
     loader = DataLoader(dataset, batch_size=4, shuffle=True)
 
+    # 创建模型和优化器
     model = MiniGPT(vocab_size=tokenizer.vocab_size).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
-    epochs = 3
+    # 训练模型
+    epochs = 5
     for epoch in range(epochs):
         loop = tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}")
         for x, y in loop:
@@ -51,5 +59,5 @@ if __name__ == "__main__":
             optimizer.step()
             loop.set_postfix(loss=loss.item())
 
-    torch.save(model.state_dict(), "output/minigpt.pt")
-    print("模型训练完成！参数已保存至 output/minigpt.pt")
+    torch.save(model.state_dict(), "output/minigpt-5e.pt")
+    print("模型训练完成！参数已保存至 output/minigpt-5e.pt")
